@@ -25,6 +25,20 @@ pub(crate) struct TencentClient {
 }
 
 impl TencentClient {
+    pub(crate) async fn user_playlists(
+        &self,
+        token: &TencentLoginToken,
+    ) -> MusicClientResult<TencentUserPlaylists> {
+        super::library::user_playlists(&self.client, token).await
+    }
+
+    pub(crate) async fn user_playlist(
+        &self,
+        id: &str,
+        token: &TencentLoginToken,
+    ) -> MusicClientResult<PlaylistDetailResult> {
+        super::library::user_playlist(&self.client, id, token).await
+    }
     /// 创建 QQ 音乐请求客户端。
     pub(crate) fn new() -> Self {
         Self {

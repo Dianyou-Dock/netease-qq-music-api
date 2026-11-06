@@ -58,6 +58,9 @@ pub enum MusicClientError {
         "token platform mismatch: expected `{expected_platform}`, got `{token_platform}` token"
     )]
     AuthTokenPlatformMismatch { expected_platform: &'static str, token_platform: &'static str },
+    /// QQ 音乐账号接口返回错误或无效响应。
+    #[error("tencent account API failed: {0}")]
+    TencentAccountApi(String),
 }
 
 /// 音乐客户端统一结果类型。

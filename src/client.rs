@@ -106,6 +106,26 @@ impl Default for MusicClient {
 }
 
 impl MusicClient {
+    /// 读取 QQ 音乐账号的自建、收藏歌单与“我喜欢”。
+    pub async fn tencent_user_playlists(
+        &self,
+        token: &crate::models::TencentLoginToken,
+    ) -> crate::error::MusicClientResult<crate::models::TencentUserPlaylists> {
+        self.tencent.user_playlists(token).await
+    }
+
+    /// 读取 QQ 音乐账号歌单曲目；“我喜欢”使用 `qq-liked:201`。
+    pub async fn tencent_user_playlist(
+        &self,
+        id: &str,
+        token: &crate::models::TencentLoginToken,
+    ) -> crate::error::MusicClientResult<crate::models::PlaylistDetailResult> {
+        if id != "qq-liked:201" && (id.is_empty() || !id.bytes().all(|byte| byte.is_ascii_digit()))
+        {
+            return Err(crate::error::MusicClientError::InvalidIdFormat(id.to_owned()));
+        }
+        self.tencent.user_playlist(id, token).await
+    }
     /// 创建新的客户端实例。
     ///
     /// 返回值可复用，用于发起多个独立请求。

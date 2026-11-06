@@ -88,6 +88,21 @@ pub struct SongAlbum {
     pub name: String,
 }
 
+/// QQ 音乐账号中的歌单，包括自建、收藏和“我喜欢”。
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct TencentUserPlaylist {
+    pub id: String,
+    pub name: String,
+    pub pic_url: String,
+    pub kind: String,
+}
+
+/// QQ 音乐账号歌单列表。
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct TencentUserPlaylists {
+    pub playlists: Vec<TencentUserPlaylist>,
+}
+
 /// 歌手搜索结果。
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SearchArtistResult {

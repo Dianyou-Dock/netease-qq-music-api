@@ -5,6 +5,7 @@
 //! [`crate::error`]。
 
 pub mod api;
+mod library;
 pub mod models;
 mod mqtt;
 pub mod utils;
