@@ -67,6 +67,14 @@ impl TencentLoginSession {
 }
 
 impl<'a> LoginSession<'a> {
+    /// 在展示二维码前订阅 QQ 音乐的扫码事件，避免遗漏立即发生的扫码。
+    pub async fn prepare(&self) -> MusicClientResult<()> {
+        if let LoginSessionState::Tencent(session) = &self.state {
+            session.mqtt.lock().await.prepare().await?;
+        }
+        Ok(())
+    }
+
     /// 返回当前登录会话所属平台。
     pub fn platform(&self) -> Platform {
         match &self.state {

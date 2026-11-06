@@ -20,11 +20,11 @@ use async_tungstenite::tungstenite::client::IntoClientRequest;
 use bytes::BytesMut;
 use futures_util::StreamExt;
 use rand::RngExt;
-use rumqttc::v5::mqttbytes::QoS;
 use rumqttc::v5::mqttbytes::v5::{
-    Connect, ConnectProperties, ConnectReturnCode, Filter, Packet, PingResp, Publish, Subscribe,
-    SubscribeProperties, SubscribeReasonCode,
+    Connect, ConnectProperties, ConnectReturnCode, Filter, Packet, PingReq, PingResp, Publish,
+    Subscribe, SubscribeProperties, SubscribeReasonCode,
 };
+use rumqttc::v5::mqttbytes::{Error as MqttDecodeError, QoS};
 use serde_json::Value;
 
 use crate::error::{MusicClientError, MusicClientResult};
@@ -33,6 +33,7 @@ const MQTT_HOST: &str = "mu.y.qq.com";
 const MQTT_PORT: u16 = 443;
 const MQTT_PATH: &str = "/ws/handshake";
 const MQTT_KEEP_ALIVE: u16 = 45;
+const MQTT_PING_INTERVAL: Duration = Duration::from_secs(30);
 const MQTT_MAX_REDIRECTS: usize = 3;
 const MQTT_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const MQTT_SUBACK_TIMEOUT: Duration = Duration::from_secs(5);
@@ -99,6 +100,15 @@ impl MqttLoginSession {
         }
     }
 
+    pub(crate) async fn prepare(&mut self) -> MusicClientResult<()> {
+        if self.socket.is_none() {
+            let mut mqtt = MqttWebSocket::connect(self.qrcode_id.as_str()).await?;
+            mqtt.subscribe(self.qrcode_id.as_str()).await?;
+            self.socket = Some(mqtt);
+        }
+        Ok(())
+    }
+
     fn fallback_event(&self) -> MqttLoginEvent {
         self.pending_state.as_event()
     }
@@ -141,11 +151,7 @@ impl MqttLoginSession {
     }
 
     async fn poll_event_once(&mut self) -> MusicClientResult<MqttLoginEvent> {
-        if self.socket.is_none() {
-            let mut mqtt = MqttWebSocket::connect(self.qrcode_id.as_str()).await?;
-            mqtt.subscribe(self.qrcode_id.as_str()).await?;
-            self.socket = Some(mqtt);
-        }
+        self.prepare().await?;
 
         let event = {
             let mqtt = self.socket.as_mut().expect("socket should be initialized");
@@ -186,6 +192,8 @@ fn retry_backoff(retries: u32) -> Duration {
 struct MqttWebSocket {
     stream: async_tungstenite::WebSocketStream<ConnectStream>,
     pending_event: Option<MqttLoginEvent>,
+    last_sent: Instant,
+    packet_buffer: BytesMut,
 }
 
 enum ConnectHandshake {
@@ -244,7 +252,12 @@ impl MqttWebSocket {
                 MusicClientError::TencentMqttLogin(format!("websocket connect failed: {err}"))
             })?;
 
-        Ok(Self { stream, pending_event: None })
+        Ok(Self {
+            stream,
+            pending_event: None,
+            last_sent: Instant::now(),
+            packet_buffer: BytesMut::new(),
+        })
     }
 
     async fn connect_mqtt(&mut self, qrcode_id: &str) -> MusicClientResult<ConnectHandshake> {
@@ -355,6 +368,9 @@ impl MqttWebSocket {
         &mut self,
         wait_timeout: Duration,
     ) -> MusicClientResult<Option<MqttLoginEvent>> {
+        if self.last_sent.elapsed() >= MQTT_PING_INTERVAL {
+            self.send_packet(Packet::PingReq(PingReq)).await?;
+        }
         if let Some(event) = self.pending_event.take() {
             return Ok(Some(event));
         }
@@ -386,6 +402,9 @@ impl MqttWebSocket {
         timeout_as_none: bool,
     ) -> MusicClientResult<Option<Packet>> {
         loop {
+            if let Some(packet) = take_packet(&mut self.packet_buffer)? {
+                return Ok(Some(packet));
+            }
             let frame = match tokio::time::timeout(timeout, self.stream.next()).await {
                 Ok(frame) => frame,
                 Err(_) if timeout_as_none => return Ok(None),
@@ -397,7 +416,9 @@ impl MqttWebSocket {
             };
 
             let Some(frame) = frame else {
-                return Ok(None);
+                return Err(MusicClientError::TencentMqttLogin(
+                    "mqtt read frame failed: websocket closed".to_owned(),
+                ));
             };
             let frame = frame.map_err(|err| {
                 MusicClientError::TencentMqttLogin(format!("mqtt read frame failed: {err}"))
@@ -405,15 +426,13 @@ impl MqttWebSocket {
 
             match frame {
                 Message::Binary(payload) => {
-                    let mut bytes = BytesMut::from(payload.as_ref());
-                    let packet = Packet::read(&mut bytes, None).map_err(|err| {
-                        MusicClientError::TencentMqttLogin(format!(
-                            "decode mqtt packet failed: {err}"
-                        ))
-                    })?;
-                    return Ok(Some(packet));
+                    self.packet_buffer.extend_from_slice(payload.as_ref());
                 }
-                Message::Close(_) => return Ok(None),
+                Message::Close(_) => {
+                    return Err(MusicClientError::TencentMqttLogin(
+                        "mqtt read frame failed: websocket closed".to_owned(),
+                    ));
+                }
                 Message::Ping(_) | Message::Pong(_) | Message::Text(_) | Message::Frame(_) => {
                     continue;
                 }
@@ -429,7 +448,19 @@ impl MqttWebSocket {
 
         self.stream.send(Message::Binary(bytes.freeze())).await.map_err(|err| {
             MusicClientError::TencentMqttLogin(format!("send mqtt packet failed: {err}"))
-        })
+        })?;
+        self.last_sent = Instant::now();
+        Ok(())
+    }
+}
+
+fn take_packet(buffer: &mut BytesMut) -> MusicClientResult<Option<Packet>> {
+    match Packet::read(buffer, None) {
+        Ok(packet) => Ok(Some(packet)),
+        Err(MqttDecodeError::InsufficientBytes(_)) => Ok(None),
+        Err(err) => {
+            Err(MusicClientError::TencentMqttLogin(format!("decode mqtt packet failed: {err}")))
+        }
     }
 }
 
@@ -516,6 +547,19 @@ mod tests {
                 ..Default::default()
             }),
         )
+    }
+
+    #[test]
+    fn preserves_multiple_packets_in_one_websocket_frame() {
+        let mut buffer = BytesMut::new();
+        Packet::PingResp(PingResp).write(&mut buffer, None).unwrap();
+        Packet::Publish(mock_publish("scanned", b"{}")).write(&mut buffer, None).unwrap();
+        assert!(matches!(take_packet(&mut buffer).unwrap(), Some(Packet::PingResp(_))));
+        let Some(Packet::Publish(publish)) = take_packet(&mut buffer).unwrap() else {
+            panic!("missing publish after ping response");
+        };
+        assert_eq!(parse_publish_event(&publish), Some(MqttLoginEvent::WaitingConfirm));
+        assert!(take_packet(&mut buffer).unwrap().is_none());
     }
 
     #[test]
