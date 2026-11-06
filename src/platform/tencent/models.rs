@@ -68,9 +68,17 @@ fn parse_song_quality(filename: &str) -> SongQuality {
 #[derive(Deserialize)]
 struct TSong {
     mid: String,
+    #[serde(default)]
+    file: Option<TSongFile>,
     name: String,
     singer: Vec<TSongSinger>,
     album: TSongAlbum,
+}
+
+#[derive(Deserialize)]
+struct TSongFile {
+    #[serde(default)]
+    media_mid: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -96,6 +104,7 @@ impl From<TSong> for Song {
     fn from(value: TSong) -> Self {
         Self {
             id: value.mid,
+            media_mid: value.file.and_then(|file| file.media_mid).filter(|mid| !mid.is_empty()),
             name: value.name,
             artists: collect_into(value.singer),
             album: SongAlbum { id: value.album.mid, name: value.album.name },

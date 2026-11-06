@@ -43,6 +43,7 @@ pub struct PlaybackUrlKind;
 pub struct PlaybackRequest<'a, K> {
     client: &'a MusicClient,
     id: Option<String>,
+    media_mid: Option<String>,
     level: SongQuality,
     platform: Platform,
     token: Option<LoginTokenRef<'a>>,
@@ -54,6 +55,7 @@ impl<'a, K> PlaybackRequest<'a, K> {
         PlaybackRequest {
             client: self.client,
             id: self.id,
+            media_mid: self.media_mid,
             level: self.level,
             platform: self.platform,
             token: self.token,
@@ -82,6 +84,7 @@ impl<'a> PlaybackRequest<'a, PlaybackKind> {
         Self {
             client,
             id: None,
+            media_mid: None,
             level: SongQuality::Standard,
             platform: Platform::Netease,
             token: None,
@@ -138,6 +141,12 @@ impl<'a> PlaybackRequest<'a, PlaybackUrlKind> {
         self
     }
 
+    /// 设置 QQ 音乐音频文件 ID；未设置时使用歌曲 ID。
+    pub fn media_mid(mut self, media_mid: impl Into<String>) -> Self {
+        self.media_mid = Some(media_mid.into());
+        self
+    }
+
     /// 设置音质等级，默认 [`SongQuality::Standard`]。
     pub fn level(mut self, level: SongQuality) -> Self {
         self.level = level;
@@ -167,7 +176,12 @@ impl<'a> PlaybackRequest<'a, PlaybackUrlKind> {
         let level = self.level;
         match self.platform {
             Platform::Netease => self.client.netease.get_url(id, level, netease_token_ref).await,
-            Platform::Tencent => self.client.tencent.get_url(id, level, tencent_token_ref).await,
+            Platform::Tencent => {
+                self.client
+                    .tencent
+                    .get_url(id, self.media_mid.as_deref(), level, tencent_token_ref)
+                    .await
+            }
         }
     }
 }

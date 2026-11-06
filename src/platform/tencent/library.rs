@@ -55,6 +55,10 @@ fn song(item: &Value) -> Option<Song> {
         .unwrap_or_default();
     Some(Song {
         id,
+        media_mid: {
+            let mid = text(value(&track["file"], &["media_mid", "mediaMid"]));
+            if mid.is_empty() { None } else { Some(mid) }
+        },
         name: text(value(track, &["name", "songname", "title"])),
         pic_url: if album_id.is_empty() {
             String::new()

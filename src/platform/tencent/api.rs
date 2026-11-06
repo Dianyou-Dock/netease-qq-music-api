@@ -418,39 +418,44 @@ impl TencentClient {
     pub(crate) async fn get_url(
         &self,
         id: &str,
+        media_mid: Option<&str>,
         level: SongQuality,
         token: Option<&TencentLoginToken>,
     ) -> MusicClientResult<UrlResult> {
+        let media_mid = media_mid.filter(|mid| !mid.is_empty()).unwrap_or(id);
         // 按音质从高到低排列候选文件名，并在末尾追加 RS02 普通音质兜底。
         let mut filename = match level {
             SongQuality::Master => vec![
-                format!("AI00{id}{id}.flac"),
-                format!("Q001{id}{id}.flac"),
-                format!("Q000{id}{id}.flac"),
-                format!("F000{id}{id}.flac"),
-                format!("M800{id}{id}.mp3"),
-                format!("M500{id}{id}.mp3"),
+                format!("AI00{media_mid}{media_mid}.flac"),
+                format!("Q001{media_mid}{media_mid}.flac"),
+                format!("Q000{media_mid}{media_mid}.flac"),
+                format!("F000{media_mid}{media_mid}.flac"),
+                format!("M800{media_mid}{media_mid}.mp3"),
+                format!("M500{media_mid}{media_mid}.mp3"),
             ],
             SongQuality::Surround => vec![
-                format!("Q001{id}{id}.flac"),
-                format!("Q000{id}{id}.flac"),
-                format!("F000{id}{id}.flac"),
-                format!("M800{id}{id}.mp3"),
-                format!("M500{id}{id}.mp3"),
+                format!("Q001{media_mid}{media_mid}.flac"),
+                format!("Q000{media_mid}{media_mid}.flac"),
+                format!("F000{media_mid}{media_mid}.flac"),
+                format!("M800{media_mid}{media_mid}.mp3"),
+                format!("M500{media_mid}{media_mid}.mp3"),
             ],
             SongQuality::Stereo => vec![
-                format!("Q000{id}{id}.flac"),
-                format!("F000{id}{id}.flac"),
-                format!("M800{id}{id}.mp3"),
-                format!("M500{id}{id}.mp3"),
+                format!("Q000{media_mid}{media_mid}.flac"),
+                format!("F000{media_mid}{media_mid}.flac"),
+                format!("M800{media_mid}{media_mid}.mp3"),
+                format!("M500{media_mid}{media_mid}.mp3"),
             ],
             SongQuality::Hires | SongQuality::Lossless => vec![
-                format!("F000{id}{id}.flac"),
-                format!("M800{id}{id}.mp3"),
-                format!("M500{id}{id}.mp3"),
+                format!("F000{media_mid}{media_mid}.flac"),
+                format!("M800{media_mid}{media_mid}.mp3"),
+                format!("M500{media_mid}{media_mid}.mp3"),
             ],
-            SongQuality::Exhigh => vec![format!("M800{id}{id}.mp3"), format!("M500{id}{id}.mp3")],
-            SongQuality::Standard => vec![format!("M500{id}{id}.mp3")],
+            SongQuality::Exhigh => vec![
+                format!("M800{media_mid}{media_mid}.mp3"),
+                format!("M500{media_mid}{media_mid}.mp3"),
+            ],
+            SongQuality::Standard => vec![format!("M500{media_mid}{media_mid}.mp3")],
         };
         filename.push(format!("RS02{id}.mp3"));
         let songmid = vec![id; filename.len()];
