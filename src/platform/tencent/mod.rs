@@ -8,6 +8,7 @@ pub mod api;
 mod library;
 pub mod models;
 mod mqtt;
+mod social;
 pub mod utils;
 
 pub(crate) use api::TencentClient;

@@ -69,6 +69,12 @@ fn parse_song_quality(filename: &str) -> SongQuality {
 struct TSong {
     mid: String,
     #[serde(default)]
+    id: Option<u64>,
+    #[serde(default)]
+    interval: Option<u64>,
+    #[serde(default)]
+    time_public: Option<String>,
+    #[serde(default)]
     file: Option<TSongFile>,
     name: String,
     singer: Vec<TSongSinger>,
@@ -104,7 +110,10 @@ impl From<TSong> for Song {
     fn from(value: TSong) -> Self {
         Self {
             id: value.mid,
+            qq_id: value.id,
             media_mid: value.file.and_then(|file| file.media_mid).filter(|mid| !mid.is_empty()),
+            duration_ms: value.interval.unwrap_or(0) * 1000,
+            release_date: value.time_public.unwrap_or_default(),
             name: value.name,
             artists: collect_into(value.singer),
             album: SongAlbum { id: value.album.mid, name: value.album.name },

@@ -15,6 +15,7 @@ exclude = [".idea/*", "AGENTS.md", "Cargo.lock", "target/*", "rustfmt.toml", ".g
 
 [dependencies]
 aes = "0.8"
+aes-gcm = "0.10"
 async-tungstenite = { version = "0.29", default-features = false, features = [
     "tokio-runtime",
     "tokio-rustls-native-certs",

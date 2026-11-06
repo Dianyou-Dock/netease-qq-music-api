@@ -32,8 +32,8 @@ fn picture(item: &Value) -> String {
     }
 }
 
-fn song(item: &Value) -> Option<Song> {
-    let nested = value(item, &["track_info", "songInfo", "songinfo", "song"]);
+pub(super) fn song(item: &Value) -> Option<Song> {
+    let nested = value(item, &["track_info", "track", "songInfo", "songinfo", "song"]);
     let track = if nested.is_object() { nested } else { item };
     let id = text(value(track, &["mid", "songmid"]));
     if id.is_empty() {
@@ -55,10 +55,13 @@ fn song(item: &Value) -> Option<Song> {
         .unwrap_or_default();
     Some(Song {
         id,
+        qq_id: value(track, &["id", "songid"]).as_u64(),
         media_mid: {
             let mid = text(value(&track["file"], &["media_mid", "mediaMid"]));
             if mid.is_empty() { None } else { Some(mid) }
         },
+        duration_ms: value(track, &["interval", "duration"]).as_u64().unwrap_or(0) * 1000,
+        release_date: text(value(track, &["time_public", "timePublic"])),
         name: text(value(track, &["name", "songname", "title"])),
         pic_url: if album_id.is_empty() {
             String::new()

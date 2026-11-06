@@ -126,6 +126,30 @@ impl MusicClient {
         }
         self.tencent.user_playlist(id, token).await
     }
+    /// 查询 QQ 音乐歌曲收藏状态。
+    pub async fn tencent_liked_status(
+        &self,
+        ids: &[String],
+        token: &crate::models::TencentLoginToken,
+    ) -> crate::error::MusicClientResult<Vec<bool>> {
+        self.tencent.liked_status(ids, token).await
+    }
+    /// 修改 QQ 音乐“我喜欢”，成功时会读回确认。
+    pub async fn tencent_set_liked(
+        &self,
+        id: &str,
+        liked: bool,
+        token: &crate::models::TencentLoginToken,
+    ) -> crate::error::MusicClientResult<()> {
+        self.tencent.set_liked(id, liked, token).await
+    }
+    /// 获取 QQ 音乐相似歌曲，参数为数字歌曲 ID。
+    pub async fn tencent_similar_songs(
+        &self,
+        song_id: u64,
+    ) -> crate::error::MusicClientResult<Vec<crate::models::Song>> {
+        self.tencent.similar_songs(song_id).await
+    }
     /// 创建新的客户端实例。
     ///
     /// 返回值可复用，用于发起多个独立请求。

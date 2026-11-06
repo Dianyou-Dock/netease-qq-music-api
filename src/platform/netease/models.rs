@@ -66,7 +66,10 @@ impl From<NSong> for Song {
     fn from(value: NSong) -> Self {
         Self {
             id: value.id.to_string(),
+            qq_id: None,
             media_mid: None,
+            duration_ms: 0,
+            release_date: String::new(),
             name: value.name,
             artists: value
                 .artists

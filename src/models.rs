@@ -60,9 +60,18 @@ pub struct SearchSongResult {
 pub struct Song {
     /// 歌曲 ID。
     pub id: String,
+    /// QQ 音乐数字歌曲 ID，用于相似歌曲等接口。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub qq_id: Option<u64>,
     /// QQ 音乐音频文件 ID，可能与歌曲 ID 不同。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub media_mid: Option<String>,
+    /// 歌曲时长，毫秒。
+    #[serde(default)]
+    pub duration_ms: u64,
+    /// 发行日期（上游未提供时为空）。
+    #[serde(default)]
+    pub release_date: String,
     /// 歌曲名。
     pub name: String,
     /// 封面图 URL。

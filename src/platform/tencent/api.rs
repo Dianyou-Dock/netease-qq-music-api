@@ -39,6 +39,24 @@ impl TencentClient {
     ) -> MusicClientResult<PlaylistDetailResult> {
         super::library::user_playlist(&self.client, id, token).await
     }
+    pub(crate) async fn liked_status(
+        &self,
+        ids: &[String],
+        token: &TencentLoginToken,
+    ) -> MusicClientResult<Vec<bool>> {
+        super::social::liked_status(&self.client, ids, token).await
+    }
+    pub(crate) async fn set_liked(
+        &self,
+        id: &str,
+        liked: bool,
+        token: &TencentLoginToken,
+    ) -> MusicClientResult<()> {
+        super::social::set_liked(&self.client, id, liked, token).await
+    }
+    pub(crate) async fn similar_songs(&self, song_id: u64) -> MusicClientResult<Vec<Song>> {
+        super::social::similar_songs(&self.client, song_id).await
+    }
     /// 创建 QQ 音乐请求客户端。
     pub(crate) fn new() -> Self {
         Self {
